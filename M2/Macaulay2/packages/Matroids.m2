@@ -1,7 +1,7 @@
 newPackage("Matroids",
 	AuxiliaryFiles => true,
-	Version => "1.2.1",
-	Date => "January 5, 2020",
+	Version => "1.2.3",
+	Date => "January 15, 2021",
 	Authors => {{
 		Name => "Justin Chen",
 		Email => "jchen@math.berkeley.edu",
@@ -442,12 +442,12 @@ seriesConnection = method()
 seriesConnection (Matroid, Matroid) := Matroid => (M, N) -> ( -- assume basepoint of 0
 	if member(0, loops M) then return (M / set{0}) ++ N;
 	if member(0, coloops M) then M ++ (N \ set{0});
-	n := #M_*;
-	D := apply(circuits N, c -> c/(i -> if i > 0 then i = i + n - 1 else 0));
+	m := #M_*;
+	D := apply(circuits N, c -> c/(i -> if i > 0 then i = i + m - 1 else 0));
 	C1 := select(circuits M, c -> not member(0, c));
 	D1 := select(D, c -> not member(0, c));
 	(C2, D2) := (circuits M - set C1, D - set D1);
-	matroid(toList(0..n+#N_*-2), C1 | D1 | flatten table(C2, D2, plus), EntryMode => "circuits")
+	matroid(toList(0..m+#N_*-2), C1 | D1 | flatten table(C2, D2, plus), EntryMode => "circuits")
 )
 
 parallelConnection = method()
@@ -549,7 +549,12 @@ quickIsomorphismTest (Matroid, Matroid) := String => (M, N) -> (
 	if M == N then ( if debugLevel > 0 then print "Matroids are equal"; return "true" );
 	if not(betti ideal M === betti ideal N) then return "false";
 	if min(b, binomial(e, r) - b) <= 1 then ( if debugLevel > 0 then print "At most 1 basis/nonbasis"; return "true" );
-	try ( alarm 2; if not betti res dual ideal M === betti res dual ideal N then return "false" ) else "Could be isomorphic"
+	try (
+		alarm 2;
+		(BM, BN) := (M, N)/ideal/dual/res/betti;
+		alarm 0;
+		if not BM === BN then "false" else "Could be isomorphic"
+	) else "Could be isomorphic"
 )
 
 areIsomorphic (Matroid, Matroid) := Boolean => (M, N) -> (
@@ -694,9 +699,9 @@ specificMatroid String := Matroid => name -> (
 	) else if name == "vamos" then (
 		relaxation(specificMatroid "V8+", set{4,5,6,7})
 	) else if name == "pappus" then (
-		matroid(toList(0..8), {{0,1,2},{0,3,7},{0,4,8},{1,3,6},{1,5,8},{2,4,6},{2,5,7},{6,7,8}}/set, EntryMode => "nonbases")
+		matroid(toList(0..8), {{0,1,2},{3,4,5},{0,3,7},{0,4,8},{1,3,6},{1,5,8},{2,4,6},{2,5,7},{6,7,8}}/set, EntryMode => "nonbases")
 	) else if name == "nonpappus" then (
-		relaxation(specificMatroid "pappus", set{6,7,8})
+		relaxation(specificMatroid "pappus", set{3,4,5})
 	) else if name == "AG32" then (
 		affineGeometry(3, 2)
 	) else if name == "R10" then (
@@ -2237,7 +2242,7 @@ doc ///
 		Example
 			P = specificMatroid "pappus"
 			NP = specificMatroid "nonpappus"
-			NP == relaxation(P, set{6,7,8})
+			NP == relaxation(P, set{3,4,5})
 	Caveat
 		Note that relaxation does not change the ground set. Thus e.g.
 		@TO representationOf@ will return the same for both the Fano and
@@ -2521,6 +2526,99 @@ doc ///
 	SeeAlso
 		(isConnected, Matroid)
 		is3Connected
+///
+
+doc ///
+	Key
+		seriesConnection
+		(seriesConnection, Matroid, Matroid)
+	Headline
+		the series connection of two matroids
+	Usage
+		seriesConnection(M, N)
+	Inputs
+		M:Matroid
+		N:Matroid
+	Outputs
+		:Matroid
+			the series connection of M and N
+	Description
+		Text
+			Let M and N be matroids on ground sets [m] and [n] respectively (recall the 
+			@TO2{groundSet, "package convention for the ground set"}@). 
+			If 0 is not a loop or coloop of M, then there is a matroid on [m+n-1]
+			called the series connection of M and N (with basepoint 0),
+			denoted S(M, N).
+			
+			The circuits of S(M, N) are of 3 types: (i) a circuit of M \ 0, (ii) a circuit
+			of N \ 0, (iii) the union of a circuit of M containing 0 with a circuit of N 
+			containing 0.
+			
+			In the cases that 0 is a loop or coloop of M, the series connection can
+			be instead expressed as a direct sum (cf. Oxley, p. 241).
+			
+			Series connections are important for their relations to matroid connectivity.
+			In this package, the 2-sum is implemented as a series connection.
+			
+		Example
+			
+	SeeAlso
+		parallelConnection
+///
+
+doc ///
+	Key
+		parallelConnection
+		(parallelConnection, Matroid, Matroid)
+	Headline
+		the parallel connection of two matroids
+	Usage
+		parallelConnection(M, N)
+	Inputs
+		M:Matroid
+		N:Matroid
+	Outputs
+		:Matroid
+			the parallel connection of M and N
+	Description
+		Text
+			Parallel connection is the dual operation to series connection:
+			for matroids M and N, the parallel connection is given by
+			P(M, N) = (S(M*, N*))*.
+			
+		Example
+			
+	SeeAlso
+		seriesConnection
+///
+
+doc ///
+	Key
+		(sum2, Matroid, Matroid)
+	Headline
+		2-sum of matroids
+	Usage
+		sum2(M, N)
+	Inputs
+		M:Matroid
+		N:Matroid
+	Outputs
+		:Matroid
+			the 2-sum of M and N
+	Description
+		Text
+			If M and N are matroids whose ground sets share a unique common
+			element p, and {p} is not a separator of M or N, then the contraction by p
+			of the series connection S(M,N)/p is the 2-sum of M and N.
+			
+			A 2-connected matroid is not 3-connected if and only if it can be written 
+			as a nontrivial 2-sum.
+			
+		Example
+			
+	SeeAlso
+		(symbol ++, Matroid, Matroid)
+		seriesConnection
 ///
 
 doc ///
